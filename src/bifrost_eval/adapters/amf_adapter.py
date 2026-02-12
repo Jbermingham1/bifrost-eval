@@ -7,7 +7,7 @@ Requires the 'amf' optional dependency:
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any, Protocol
 
 from bifrost_eval.core.runner import ExecutionTrace
 from bifrost_eval.models.evaluation import (
@@ -17,8 +17,34 @@ from bifrost_eval.models.evaluation import (
     ToolCallRecord,
 )
 
-if TYPE_CHECKING:
-    from agent_mcp_framework import AgentContext, Pipeline, PipelineResult
+
+class _AgentContext(Protocol):
+    """Minimal protocol for agent-mcp-framework AgentContext."""
+
+    data: dict[str, Any]
+
+
+class _AgentResult(Protocol):
+    """Minimal protocol for agent-mcp-framework AgentResult."""
+
+    agent_name: str
+    success: bool
+    error: str | None
+    duration_ms: float
+
+
+class _PipelineResult(Protocol):
+    """Minimal protocol for agent-mcp-framework PipelineResult."""
+
+    success: bool
+    outputs: Any
+    results: list[_AgentResult]
+
+
+class _Pipeline(Protocol):
+    """Minimal protocol for agent-mcp-framework Pipeline."""
+
+    async def execute(self, ctx: Any) -> _PipelineResult: ...
 
 
 class AMFAdapter:
@@ -35,10 +61,10 @@ class AMFAdapter:
 
     def __init__(
         self,
-        pipeline: Pipeline,
+        pipeline: _Pipeline,
         context_builder: Any | None = None,
         output_extractor: Any | None = None,
-    ):
+    ) -> None:
         self.pipeline = pipeline
         self._context_builder = context_builder
         self._output_extractor = output_extractor
@@ -46,7 +72,7 @@ class AMFAdapter:
     async def execute(self, scenario: Scenario) -> ExecutionTrace:
         """Execute the AMF pipeline for the given scenario."""
         try:
-            from agent_mcp_framework import AgentContext
+            from agent_mcp_framework import AgentContext  # type: ignore[import-untyped]
         except ImportError as exc:
             raise ImportError(
                 "agent-mcp-framework is required for AMFAdapter. "
@@ -55,17 +81,17 @@ class AMFAdapter:
 
         # Build context from scenario input
         if self._context_builder is not None:
-            ctx: AgentContext = self._context_builder(scenario)
+            ctx: Any = self._context_builder(scenario)
         else:
             ctx = AgentContext(data=scenario.input_data)
 
         start = time.monotonic()
-        result: PipelineResult = await self.pipeline.execute(ctx)
+        result: _PipelineResult = await self.pipeline.execute(ctx)
         elapsed = (time.monotonic() - start) * 1000
 
         # Extract output
         if self._output_extractor is not None:
-            output = self._output_extractor(result, ctx)
+            output: Any = self._output_extractor(result, ctx)
         else:
             output = result.outputs
 
@@ -87,7 +113,7 @@ class AMFAdapter:
         )
 
 
-def _extract_tool_calls(result: PipelineResult) -> list[ToolCallRecord]:
+def _extract_tool_calls(result: _PipelineResult) -> list[ToolCallRecord]:
     """Extract tool call records from pipeline results."""
     records: list[ToolCallRecord] = []
     for agent_result in result.results:
@@ -102,7 +128,7 @@ def _extract_tool_calls(result: PipelineResult) -> list[ToolCallRecord]:
     return records
 
 
-def _first_error(result: PipelineResult) -> str | None:
+def _first_error(result: _PipelineResult) -> str | None:
     """Get the first error from failed results."""
     for r in result.results:
         if not r.success and r.error:

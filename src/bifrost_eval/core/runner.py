@@ -120,7 +120,7 @@ class EvalRunner:
     async def run_suite(self, suite: EvalSuite) -> EvalResult:
         """Run all scenarios in a suite and produce aggregated results."""
         if self.max_concurrency <= 1:
-            outcomes = []
+            outcomes: list[ScenarioOutcome] = []
             for scenario in suite.scenarios:
                 outcome = await self.run_scenario(scenario)
                 outcomes.append(outcome)
@@ -131,9 +131,10 @@ class EvalRunner:
                 async with sem:
                     return await self.run_scenario(scenario)
 
-            outcomes = list(
+            gathered: list[ScenarioOutcome] = list(
                 await asyncio.gather(*[run_with_sem(s) for s in suite.scenarios])
             )
+            outcomes = gathered
 
         total_cost = _aggregate_costs(outcomes)
         total_latency = _aggregate_latencies(outcomes)
