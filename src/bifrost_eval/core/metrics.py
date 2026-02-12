@@ -74,7 +74,8 @@ class ToolCorrectnessMetric(Metric):
                 name=self.name, value=1.0, weight=self.weight, details="No expected tools; skipped"
             )
 
-        expected_tools: list[str] = cast(list[str], expected) if isinstance(expected, list) else list(cast(list[str], expected))
+        raw = cast("list[str]", expected) if isinstance(expected, list) else list(expected)
+        expected_tools: list[str] = raw
         actual_tools = outcome.tool_call_names
 
         if not expected_tools:

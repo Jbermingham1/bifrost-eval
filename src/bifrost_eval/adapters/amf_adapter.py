@@ -7,7 +7,7 @@ Requires the 'amf' optional dependency:
 from __future__ import annotations
 
 import time
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from bifrost_eval.core.runner import ExecutionTrace
 from bifrost_eval.models.evaluation import (
@@ -74,11 +74,10 @@ class AMFAdapter:
             ) from exc
 
         # Build context from scenario input
-        ctx: Any
         if self._context_builder is not None:
-            ctx = self._context_builder(scenario)
+            ctx: Any = self._context_builder(scenario)
         else:
-            ctx = AgentContext(data=scenario.input_data)
+            ctx = cast("Any", AgentContext(data=scenario.input_data))
 
         start = time.monotonic()
         result: _PipelineResult = await self.pipeline.execute(ctx)
