@@ -18,12 +18,6 @@ from bifrost_eval.models.evaluation import (
 )
 
 
-class _AgentContext(Protocol):
-    """Minimal protocol for agent-mcp-framework AgentContext."""
-
-    data: dict[str, Any]
-
-
 class _AgentResult(Protocol):
     """Minimal protocol for agent-mcp-framework AgentResult."""
 
@@ -80,8 +74,9 @@ class AMFAdapter:
             ) from exc
 
         # Build context from scenario input
+        ctx: Any
         if self._context_builder is not None:
-            ctx: Any = self._context_builder(scenario)
+            ctx = self._context_builder(scenario)
         else:
             ctx = AgentContext(data=scenario.input_data)
 
