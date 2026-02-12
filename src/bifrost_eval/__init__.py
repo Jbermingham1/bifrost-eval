@@ -1,5 +1,6 @@
 """bifrost-eval: MCP pipeline evaluation toolkit."""
 
+from bifrost_eval.adapters.comparison import ComparisonResult, ComparisonRunner
 from bifrost_eval.core.metrics import (
     AccuracyMetric,
     CostEfficiencyMetric,

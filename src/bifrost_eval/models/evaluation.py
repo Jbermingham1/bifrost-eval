@@ -82,9 +82,9 @@ class ScenarioOutcome(BaseModel):
 
     scenario_name: str
     passed: bool
-    scores: list[EvalScore] = Field(default_factory=list)
+    scores: list[EvalScore] = Field(default_factory=lambda: list[EvalScore]())
     actual_output: Any = None
-    tool_calls: list[ToolCallRecord] = Field(default_factory=list)
+    tool_calls: list[ToolCallRecord] = Field(default_factory=lambda: list[ToolCallRecord]())
     cost: CostBreakdown = Field(default_factory=CostBreakdown)
     latency: LatencyBreakdown = Field(default_factory=LatencyBreakdown)
     error: str | None = None
@@ -110,7 +110,7 @@ class EvalResult(BaseModel):
     """Aggregated result from an entire evaluation suite run."""
 
     suite_name: str
-    outcomes: list[ScenarioOutcome] = Field(default_factory=list)
+    outcomes: list[ScenarioOutcome] = Field(default_factory=lambda: list[ScenarioOutcome]())
     total_cost: CostBreakdown = Field(default_factory=CostBreakdown)
     total_latency: LatencyBreakdown = Field(default_factory=LatencyBreakdown)
     run_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -158,6 +158,6 @@ class EvalSuite(BaseModel):
 
     name: str
     description: str = ""
-    scenarios: list[Scenario] = Field(default_factory=list)
+    scenarios: list[Scenario] = Field(default_factory=lambda: list[Scenario]())
     tags: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
