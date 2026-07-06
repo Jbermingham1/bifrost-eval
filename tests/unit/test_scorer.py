@@ -108,15 +108,15 @@ class TestWeightedGrader:
         )
         assert grader.grade(outcome) == GradeLevel.EXCELLENT
 
-    def test_required_score_missing(self) -> None:
+    def test_required_score_missing_fails(self) -> None:
         grader = WeightedGrader(required_scores={"accuracy": 0.8})
         outcome = ScenarioOutcome(
             scenario_name="test",
             passed=True,
             scores=[EvalScore(name="speed", value=0.95)],
         )
-        # Should not fail if the required score dimension isn't present
-        assert grader.grade(outcome) == GradeLevel.EXCELLENT
+        # A required dimension that was never scored is a failure, not a free pass
+        assert grader.grade(outcome) == GradeLevel.FAIL
 
     def test_custom_min_pass(self) -> None:
         grader = WeightedGrader(min_pass_score=0.7)

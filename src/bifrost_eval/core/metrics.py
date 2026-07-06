@@ -20,11 +20,20 @@ class Metric(ABC):
         """Calculate a score for the given outcome."""
         ...
 
+    def _excluded(self, reason: str) -> EvalScore:
+        """A score that sits out of the grade because the dimension can't be measured.
+
+        Weight 0.0 removes it from the weighted average — a dimension with no data
+        must never count as a result, perfect or otherwise.
+        """
+        return EvalScore(name=self.name, value=0.0, weight=0.0, details=f"Excluded: {reason}")
+
 
 class AccuracyMetric(Metric):
     """Measures whether the actual output matches expected output.
 
     Uses exact match by default. Supports custom comparators.
+    Excluded from the grade when the scenario defines no expected output.
     """
 
     def __init__(
@@ -37,10 +46,7 @@ class AccuracyMetric(Metric):
 
     def score(self, outcome: ScenarioOutcome, expected: Any | None = None) -> EvalScore:
         if expected is None:
-            return EvalScore(
-                name=self.name, value=1.0, weight=self.weight,
-                details="No expected output; skipped",
-            )
+            return self._excluded("no expected output defined")
 
         if self._comparator is not None:
             match = bool(self._comparator(outcome.actual_output, expected))
@@ -59,56 +65,61 @@ class ToolCorrectnessMetric(Metric):
     """Measures whether the correct tools were called in the expected order.
 
     Scores based on:
-    - Presence: were all expected tools called?
-    - Order: were they called in the right sequence?
-    - Extras: were unexpected tools called?
+    - Presence: were all expected tools called? (weight 0.6)
+    - Order: were they called in the right sequence? (weight 0.4, LCS ratio)
+    - Extras: unexpected tool calls apply a penalty factor
+
+    Order checking is on by default; pass ``check_order=False`` to score
+    presence only. Excluded from the grade when the scenario defines no
+    expected tool calls.
     """
 
-    def __init__(self, weight: float = 1.0, strict_order: bool = False):
+    def __init__(self, weight: float = 1.0, check_order: bool = True):
         super().__init__("tool_correctness", weight)
-        self.strict_order = strict_order
+        self.check_order = check_order
 
     def score(self, outcome: ScenarioOutcome, expected: Any | None = None) -> EvalScore:
         if expected is None:
-            return EvalScore(
-                name=self.name, value=1.0, weight=self.weight, details="No expected tools; skipped"
-            )
+            return self._excluded("no expected tool calls defined")
 
         raw = cast("list[str]", expected) if isinstance(expected, list) else list(expected)
         expected_tools: list[str] = raw
         actual_tools = outcome.tool_call_names
 
         if not expected_tools:
-            return EvalScore(
-                name=self.name, value=1.0, weight=self.weight, details="Empty expected tools"
-            )
+            return self._excluded("no expected tool calls defined")
 
         # Presence score: what fraction of expected tools were called?
         called_set = set(actual_tools)
         expected_set = set(expected_tools)
-        presence = len(called_set & expected_set) / len(expected_set) if expected_set else 1.0
+        presence = len(called_set & expected_set) / len(expected_set)
 
         # Order score: longest common subsequence ratio
-        if self.strict_order and expected_tools:
+        if self.check_order:
             order_score = _lcs_ratio(expected_tools, actual_tools)
+            base = presence * 0.6 + order_score * 0.4
         else:
-            order_score = 1.0
+            order_score = None
+            base = presence
 
         # Penalty for extra unexpected tools
         extras = called_set - expected_set
         extra_penalty = len(extras) / max(len(actual_tools), 1)
 
-        raw = (presence * 0.5 + order_score * 0.3) * (1.0 - extra_penalty * 0.2)
-        value = max(0.0, min(1.0, raw))
+        value = max(0.0, min(1.0, base * (1.0 - extra_penalty * 0.2)))
+        order_detail = f"{order_score:.2f}" if order_score is not None else "not checked"
         details = (
-            f"Presence: {presence:.2f}, Order: {order_score:.2f}, "
+            f"Presence: {presence:.2f}, Order: {order_detail}, "
             f"Extras: {len(extras)}, Expected: {expected_tools}, Actual: {actual_tools}"
         )
         return EvalScore(name=self.name, value=value, weight=self.weight, details=details)
 
 
 class LatencyMetric(Metric):
-    """Scores based on how fast the pipeline completed vs a target."""
+    """Scores based on how fast the pipeline completed vs a target.
+
+    Excluded from the grade when no latency was recorded.
+    """
 
     def __init__(self, target_ms: float = 5000.0, weight: float = 1.0):
         super().__init__("latency", weight)
@@ -117,13 +128,9 @@ class LatencyMetric(Metric):
     def score(self, outcome: ScenarioOutcome, expected: Any | None = None) -> EvalScore:
         actual = outcome.latency.total_ms
         if actual <= 0:
-            return EvalScore(
-                name=self.name, value=1.0, weight=self.weight,
-                details="No latency data",
-            )
+            return self._excluded("no latency data recorded")
 
-        ratio = self.target_ms / actual if actual > 0 else 1.0
-        value = min(1.0, ratio)
+        value = min(1.0, self.target_ms / actual)
         return EvalScore(
             name=self.name,
             value=value,
@@ -133,7 +140,11 @@ class LatencyMetric(Metric):
 
 
 class CostEfficiencyMetric(Metric):
-    """Scores based on cost vs a budget target."""
+    """Scores based on cost vs a budget target.
+
+    Excluded from the grade when no cost was recorded — a pipeline that
+    reports nothing must not be graded as free.
+    """
 
     def __init__(self, budget_usd: float = 0.10, weight: float = 1.0):
         super().__init__("cost_efficiency", weight)
@@ -142,12 +153,9 @@ class CostEfficiencyMetric(Metric):
     def score(self, outcome: ScenarioOutcome, expected: Any | None = None) -> EvalScore:
         actual = outcome.cost.total_usd
         if actual <= 0:
-            return EvalScore(
-                name=self.name, value=1.0, weight=self.weight, details="No cost data"
-            )
+            return self._excluded("no cost data recorded")
 
-        ratio = self.budget_usd / actual if actual > 0 else 1.0
-        value = min(1.0, ratio)
+        value = min(1.0, self.budget_usd / actual)
         return EvalScore(
             name=self.name,
             value=value,

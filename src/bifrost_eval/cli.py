@@ -18,14 +18,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", action="store_true", help="Show version")
     subparsers = parser.add_subparsers(dest="command")
 
-    # run command
-    run_parser = subparsers.add_parser("run", help="Run an evaluation suite from a JSON file")
-    run_parser.add_argument("suite_file", type=str, help="Path to evaluation suite JSON file")
-    run_parser.add_argument(
-        "--format", choices=["json", "text"], default="text", help="Output format"
-    )
-
-    # validate command
+    # validate command. Running a suite requires a PipelineExecutor, which only
+    # exists in Python code — so evaluation runs live in the Python API, and the
+    # CLI only offers what it can actually do.
     validate_parser = subparsers.add_parser("validate", help="Validate a suite file")
     validate_parser.add_argument("suite_file", type=str, help="Path to evaluation suite JSON file")
 
@@ -39,11 +34,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "validate":
         return _cmd_validate(args.suite_file)
-
-    if args.command == "run":
-        print("Error: 'run' requires a pipeline executor. Use the Python API for full evaluation.")
-        print("See: https://github.com/Jbermingham1/bifrost-eval#usage")
-        return 1
 
     parser.print_help()
     return 0

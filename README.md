@@ -38,7 +38,7 @@ bifrost-eval evaluates multi-agent MCP pipelines as complete workflows, not just
 - **Did agents use the right tools in the right order?** (tool correctness via Longest-Common-Subsequence)
 - **How fast was it?** (latency breakdown per agent/tool, p50/p95/p99 percentiles)
 - **How much did it cost?** (cost attribution per agent/tool)
-- **How do different configurations compare?** (A/B testing with statistical winner)
+- **How do different configurations compare?** (A/B comparison — highest mean score wins)
 
 ## Install
 

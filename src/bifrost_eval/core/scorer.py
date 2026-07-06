@@ -58,9 +58,10 @@ class WeightedGrader(GradingStrategy):
     def grade(self, outcome: ScenarioOutcome) -> GradeLevel:
         score_map = {s.name: s.value for s in outcome.scores}
 
-        # Check required minimums
+        # Check required minimums — a required dimension that was never
+        # scored is a failure, not a free pass
         for name, minimum in self.required_scores.items():
-            if name in score_map and score_map[name] < minimum:
+            if name not in score_map or score_map[name] < minimum:
                 return GradeLevel.FAIL
 
         score = outcome.weighted_score

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import tempfile
 
+import pytest
+
 from bifrost_eval.cli import main
 
 
@@ -15,12 +17,10 @@ class TestCLI:
     def test_no_args(self) -> None:
         assert main([]) == 0
 
-    def test_run_without_executor(self) -> None:
-        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
-            json.dump({"name": "test", "scenarios": []}, f)
-            f.flush()
-            result = main(["run", f.name])
-        assert result == 1
+    def test_run_is_not_a_command(self) -> None:
+        # 'run' was a stub that could never execute; it must not be advertised
+        with pytest.raises(SystemExit):
+            main(["run", "suite.json"])
 
     def test_validate_valid_suite(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:

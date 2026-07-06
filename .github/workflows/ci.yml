@@ -64,9 +64,11 @@ jobs:
       - name: Install dependencies
         run: uv pip install --system -e ".[dev]"
       - name: Bandit security scan
-        run: bandit -r src/ -c pyproject.toml || true
+        run: bandit -r src/ -ll
       - name: Pip audit
-        run: pip-audit
+        # CVE-2026-3219 is in the runner's own pip with no fixed release;
+        # it is not a dependency of this project
+        run: pip-audit --ignore-vuln CVE-2026-3219
 
   build:
     runs-on: ubuntu-latest

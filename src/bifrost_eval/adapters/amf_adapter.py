@@ -23,6 +23,7 @@ class _AgentResult(Protocol):
 
     agent_name: str
     success: bool
+    output: Any
     error: str | None
     duration_ms: float
 
@@ -83,9 +84,14 @@ class AMFAdapter:
         result: _PipelineResult = await self.pipeline.execute(ctx)
         elapsed = (time.monotonic() - start) * 1000
 
-        # Extract output
+        # Extract output. By default, a pipeline's answer is its final agent's
+        # output — NOT the agent-name-keyed dict in result.outputs, which never
+        # matches a scenario's expected_output. Pass output_extractor to override
+        # (e.g. for parallel pipelines where the keyed dict is the real answer).
         if self._output_extractor is not None:
             output: Any = self._output_extractor(result, ctx)
+        elif result.results:
+            output = result.results[-1].output
         else:
             output = result.outputs
 

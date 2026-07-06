@@ -39,13 +39,14 @@ class TestAccuracyMetric:
         score = metric.score(outcome, expected="world")
         assert score.value == 0.0
 
-    def test_no_expected(self) -> None:
+    def test_no_expected_is_excluded(self) -> None:
         metric = AccuracyMetric()
         outcome = ScenarioOutcome(
             scenario_name="test", passed=True, actual_output="hello"
         )
         score = metric.score(outcome, expected=None)
-        assert score.value == 1.0
+        assert score.weight == 0.0
+        assert "Excluded" in score.details
 
     def test_custom_comparator(self) -> None:
         def fuzzy(actual: object, expected: object) -> bool:
@@ -93,7 +94,7 @@ class TestToolCorrectnessMetric:
             ],
         )
         score = metric.score(outcome, expected=["a", "b"])
-        assert score.value > 0.7
+        assert score.value == pytest.approx(1.0)
 
     def test_missing_tool(self) -> None:
         metric = ToolCorrectnessMetric()
@@ -103,8 +104,8 @@ class TestToolCorrectnessMetric:
             tool_calls=[ToolCallRecord(tool_name="a")],
         )
         score = metric.score(outcome, expected=["a", "b"])
-        # Only 1 of 2 expected tools present → partial score
-        assert score.value < 0.7
+        # Presence 0.5, order 0.5 → 0.6*0.5 + 0.4*0.5
+        assert score.value == pytest.approx(0.5)
 
     def test_extra_tools(self) -> None:
         metric = ToolCorrectnessMetric()
@@ -118,22 +119,25 @@ class TestToolCorrectnessMetric:
             ],
         )
         score = metric.score(outcome, expected=["a", "b"])
-        assert 0.0 < score.value <= 1.0
+        # Right tools in right order, one extra → penalised below perfect
+        assert 0.0 < score.value < 1.0
 
-    def test_no_expected(self) -> None:
+    def test_no_expected_is_excluded(self) -> None:
         metric = ToolCorrectnessMetric()
         outcome = ScenarioOutcome(scenario_name="test", passed=True)
         score = metric.score(outcome, expected=None)
-        assert score.value == 1.0
+        assert score.weight == 0.0
+        assert "Excluded" in score.details
 
-    def test_empty_expected(self) -> None:
+    def test_empty_expected_is_excluded(self) -> None:
         metric = ToolCorrectnessMetric()
         outcome = ScenarioOutcome(scenario_name="test", passed=True)
         score = metric.score(outcome, expected=[])
-        assert score.value == 1.0
+        assert score.weight == 0.0
+        assert "Excluded" in score.details
 
     def test_strict_order_correct(self) -> None:
-        metric = ToolCorrectnessMetric(strict_order=True)
+        metric = ToolCorrectnessMetric()
         outcome = ScenarioOutcome(
             scenario_name="test",
             passed=True,
@@ -144,10 +148,10 @@ class TestToolCorrectnessMetric:
             ],
         )
         score = metric.score(outcome, expected=["a", "b", "c"])
-        assert score.value > 0.7
+        assert score.value == pytest.approx(1.0)
 
     def test_strict_order_wrong(self) -> None:
-        metric = ToolCorrectnessMetric(strict_order=True)
+        metric = ToolCorrectnessMetric()
         outcome = ScenarioOutcome(
             scenario_name="test",
             passed=True,
@@ -169,7 +173,7 @@ class TestToolCorrectnessMetric:
             ],
         )
         score_correct = metric.score(outcome_correct, expected=["a", "b", "c"])
-        assert score_correct.value >= score_wrong.value
+        assert score_correct.value > score_wrong.value
 
     def test_completely_wrong_tools(self) -> None:
         metric = ToolCorrectnessMetric()
@@ -182,8 +186,8 @@ class TestToolCorrectnessMetric:
             ],
         )
         score = metric.score(outcome, expected=["a", "b"])
-        # Zero presence + all extras → very low but order component still contributes
-        assert score.value < 0.3
+        # Zero presence, zero order overlap → zero
+        assert score.value == 0.0
 
 
 class TestLatencyMetric:
@@ -217,11 +221,12 @@ class TestLatencyMetric:
         score = metric.score(outcome)
         assert score.value == pytest.approx(0.5)
 
-    def test_no_latency_data(self) -> None:
+    def test_no_latency_data_is_excluded(self) -> None:
         metric = LatencyMetric()
         outcome = ScenarioOutcome(scenario_name="test", passed=True)
         score = metric.score(outcome)
-        assert score.value == 1.0
+        assert score.weight == 0.0
+        assert "Excluded" in score.details
 
     @given(st.floats(min_value=1.0, max_value=100000.0))
     def test_score_always_valid(self, latency: float) -> None:
@@ -266,11 +271,12 @@ class TestCostEfficiencyMetric:
         score = metric.score(outcome)
         assert score.value == pytest.approx(0.5)
 
-    def test_no_cost_data(self) -> None:
+    def test_no_cost_data_is_excluded(self) -> None:
         metric = CostEfficiencyMetric()
         outcome = ScenarioOutcome(scenario_name="test", passed=True)
         score = metric.score(outcome)
-        assert score.value == 1.0
+        assert score.weight == 0.0
+        assert "Excluded" in score.details
 
     @given(st.floats(min_value=0.001, max_value=10.0))
     def test_score_always_valid(self, cost: float) -> None:

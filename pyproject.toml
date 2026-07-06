@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bifrost-eval"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP pipeline evaluation toolkit — grade AI agent workflows on accuracy, cost, and reliability"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 authors = [
-    { name = "Jarrad Bermingham", email = "jarrad.bermingham@gmail.com" },
+    { name = "Jarrad Bermingham", email = "jarrad.bermingham98@gmail.com" },
 ]
 keywords = ["ai", "evaluation", "mcp", "agents", "testing", "llm"]
 classifiers = [
@@ -32,6 +32,7 @@ dependencies = [
 [project.optional-dependencies]
 amf = ["agent-mcp-framework>=0.1.0"]
 dev = [
+    "agent-mcp-framework>=0.2.0",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-cov>=5.0",
@@ -52,6 +53,16 @@ Issues = "https://github.com/Jbermingham1/bifrost-eval/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bifrost_eval"]
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "src",
+    "tests",
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
